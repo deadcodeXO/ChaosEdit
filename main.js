@@ -24,7 +24,6 @@ const MONACO_ASSET_PORT_START = 4382;
 const MONACO_ASSET_PORT_END = 4499;
 const MONACO_CDN_AMD_BASE_URL = `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_VERSION}/min/vs`;
 const MAX_WORKSPACE_FILES = 5000;
-const MAX_WORKSPACE_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 
 const WORKSPACE_IGNORED_DIRS = new Set([
   ".git",
@@ -671,11 +670,6 @@ ipcMain.handle("workspace-read-file", (_event, relativePath) => {
 
   if (!fileStat.isFile()) {
     throw new Error(`Not a file: ${relativePath}`);
-  }
-  if (fileStat.size > MAX_WORKSPACE_FILE_SIZE_BYTES) {
-    throw new Error(
-      `File too large for in-app editor (${String(fileStat.size)} bytes): ${relativePath}`
-    );
   }
 
   return {

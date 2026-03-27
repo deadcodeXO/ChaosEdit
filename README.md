@@ -1,55 +1,72 @@
 # ChaosEdit
 
-Lightweight Electron editor extracted from the Monaco workspace panel used in the CMS companion app.
+ChaosEdit is a local-first desktop text editor built with Electron and Monaco.
 
-## Structure
+It is designed for quick workspace editing with a focused UI: file tree, Monaco code view, inline status/console, and safe workspace-scoped file operations.
 
-- `main.js`: Electron main process, workspace file IPC, Monaco asset server
-- `preload.cjs`: Safe renderer API bridge
-- `app.html`: UI layout + styles
-- `app.js`: Renderer logic (file tree, Monaco, save/create/delete, theme, console)
-- `vendor/powerglitch.min.js`: local animation dependency used by About modal
+## Highlights
 
-## Run (Current Monorepo)
+- Workspace-based editing for local folders
+- Monaco editor with syntax mode selection by file extension
+- File actions: open, create, save, save as, delete
+- Dirty-state tracking with unsaved-change prompts
+- Folder/file filter and expandable file tree
+- Light/dark theme toggle
+- Built-in console panel for editor/runtime logs
+- Frameless custom titlebar with custom window controls
+- About modal with runtime metadata and animation effects
 
-From repo root:
+## Safety And Limits
+
+ChaosEdit intentionally limits risky or heavy operations:
+
+- File operations are constrained to the active workspace root
+- Path traversal outside workspace is blocked
+- Workspace listing limit: `5000` files
+- Several large/system directories are skipped (`.git`, `node_modules`, `dist`, `.next`, etc.)
+- Common lockfiles are skipped in tree listing
+- Known binary-like extensions are blocked from in-editor writes
+
+## Keyboard Shortcuts
+
+- `Ctrl/Cmd + S`: Save
+- `Ctrl/Cmd + Shift + S`: Save As
+- `Ctrl/Cmd + F`: Focus file filter
+- `Ctrl/Cmd + O`: Open workspace folder
+- `Ctrl/Cmd + Shift + L`: Toggle console panel
+- `Esc`: Close open modal dialogs
+
+## Project Structure
+
+- `main.js`: Electron main process, workspace/file IPC handlers, Monaco asset server
+- `preload.cjs`: Renderer-safe API bridge (`window.electronAPI`)
+- `app.html`: App layout and UI styling
+- `app.js`: Renderer logic (state, Monaco loading, file tree, actions, shortcuts)
+- `vendor/powerglitch.min.js`: About modal glitch animation dependency
+
+## Run
+
+From `standalone-editor/`:
 
 ```bash
+npm install
 npm run editor:app
 ```
 
-Build from repo root:
+`npm start` runs the same command.
+
+## Build (Windows)
+
+From `standalone-editor/`:
 
 ```bash
 npm run editor:app:portable
 npm run editor:app:installer
 ```
 
-## Run (As Standalone Repo)
+- Portable build output: `release/`
+- Installer build output: `release-installer/`
 
-From `standalone-editor/`:
+## Monaco Loading Strategy
 
-```bash
-npm install
-npm run start
-```
-
-Build standalone:
-
-```bash
-npm run build:portable
-npm run build:installer
-```
-
-## Publish This Folder As Its Own GitHub Repo
-
-You can keep this folder inside the parent repo and still publish it separately with `git subtree`.
-
-From parent repo root:
-
-```bash
-git subtree split --prefix=standalone-editor -b chaosedit-publish
-git push git@github.com:<your-user>/<your-chaosedit-repo>.git chaosedit-publish:main
-```
-
-Then you can keep updating and republishing with the same commands.
+At startup, ChaosEdit attempts to serve Monaco assets from a local HTTP server (loopback only). If unavailable, it falls back to jsDelivr CDN for Monaco AMD assets.

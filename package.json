@@ -6,10 +6,10 @@
   "type": "module",
   "main": "main.js",
   "scripts": {
-    "app": "electron .",
-    "start": "electron .",
-    "build:portable": "electron-builder --win portable --config electron-builder.standalone.json",
-    "build:installer": "electron-builder --win nsis --config electron-builder.installer.standalone.json"
+    "editor:app": "electron .",
+    "editor:app:portable": "electron-builder --win portable --config electron-builder.standalone.json",
+    "editor:app:installer": "electron-builder --win nsis --config electron-builder.installer.standalone.json",
+    "start": "electron ."
   },
   "dependencies": {
     "monaco-editor": "^0.53.0"

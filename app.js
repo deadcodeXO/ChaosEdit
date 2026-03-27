@@ -1003,7 +1003,7 @@
     }
   });
   els.aboutGithubBtn?.addEventListener("click", () => {
-    api.openExternal?.("https://github.com/deadcodexo").catch(() => {
+    api.openExternal?.("https://github.com/deadcodeXO/ChaosEdit").catch(() => {
       log("Failed to open GitHub link.");
     });
   });
