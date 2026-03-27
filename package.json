@@ -1,0 +1,21 @@
+{
+  "name": "chaosedit",
+  "version": "1.0.0",
+  "description": "ChaosEdit standalone local-first editor",
+  "private": false,
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "app": "electron .",
+    "start": "electron .",
+    "build:portable": "electron-builder --win portable --config electron-builder.standalone.json",
+    "build:installer": "electron-builder --win nsis --config electron-builder.installer.standalone.json"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.53.0"
+  },
+  "devDependencies": {
+    "electron": "^41.0.3",
+    "electron-builder": "^26.8.1"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "extends": "./electron-builder.standalone.json",
+  "directories": {
+    "output": "release-installer"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
+  }
+}

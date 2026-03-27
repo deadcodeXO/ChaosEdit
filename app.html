@@ -1,0 +1,1391 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChaosEdit</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #12141a;
+        --panel: #1b1f2b;
+        --panel-2: #232838;
+        --text: #dde7ff;
+        --muted: #90a0c4;
+        --accent: #66a2ff;
+        --success: #4bc37a;
+        --danger: #f26975;
+        --border: rgba(128, 154, 212, 0.24);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(1200px 700px at 88% -10%, rgba(102, 162, 255, 0.16), transparent 45%),
+          radial-gradient(900px 600px at -10% 110%, rgba(59, 121, 226, 0.14), transparent 50%),
+          var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI Variable Text", "Inter", "Segoe UI", sans-serif;
+      }
+
+      .titlebar {
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px 0 12px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(19, 23, 32, 0.92);
+        -webkit-app-region: drag;
+        position: relative;
+        z-index: 20;
+      }
+
+      .titlebar-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .title-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .status-indicator {
+        width: 14px;
+        height: 14px;
+        color: #7b8fbf;
+        display: inline-grid;
+        place-items: center;
+        transition: color 140ms ease, filter 140ms ease;
+      }
+
+      .status-indicator svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        stroke-width: 1.9;
+        fill: none;
+      }
+
+      .status-indicator.connected {
+        color: #4bc37a;
+        filter: drop-shadow(0 0 3px rgba(75, 195, 122, 0.35));
+      }
+
+      .status-indicator.disconnected {
+        color: #f26975;
+        filter: drop-shadow(0 0 3px rgba(242, 105, 117, 0.28));
+      }
+
+      .title {
+        font-size: 12px;
+        letter-spacing: 0.03em;
+        color: #cbd8f8;
+      }
+
+      .window-controls {
+        display: flex;
+        gap: 4px;
+        -webkit-app-region: no-drag;
+      }
+
+      .window-controls button {
+        width: 28px;
+        height: 22px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: transparent;
+        color: #b9c8eb;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        padding: 0;
+      }
+
+      .window-controls button:hover {
+        border-color: var(--border);
+        background: rgba(140, 169, 230, 0.12);
+      }
+
+      .window-controls button.close:hover {
+        color: #fff;
+        border-color: rgba(255, 80, 100, 0.45);
+        background: rgba(255, 80, 100, 0.4);
+      }
+
+      .window-controls button svg {
+        width: 12px;
+        height: 12px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+
+      .app-shell {
+        height: calc(100% - 34px);
+        display: block;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-rows: 42px minmax(0, 1fr) auto;
+        height: 100%;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .workspace-header {
+        border-bottom: 1px solid var(--border);
+        background: rgba(18, 22, 32, 0.72);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 14px;
+      }
+
+      .workspace-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .workspace-header h1 {
+        margin: 0;
+        font-size: 13px;
+        letter-spacing: 0.02em;
+        color: #ccdaf8;
+      }
+
+      .workspace-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .workspace-action-btn {
+        width: 24px;
+        height: 24px;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        background: transparent;
+        color: #b8c8ec;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        cursor: pointer;
+      }
+
+      .workspace-action-btn:hover {
+        border-color: var(--border);
+        background: rgba(140, 169, 230, 0.16);
+        color: #d8e5ff;
+      }
+
+      .workspace-action-btn.active {
+        border-color: rgba(115, 167, 255, 0.72);
+        background: rgba(109, 161, 255, 0.2);
+        color: #e2eeff;
+      }
+
+      .workspace-action-btn svg {
+        width: 14px;
+        height: 14px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+
+      .workspace-status {
+        font-size: 12px;
+        color: var(--muted);
+        min-width: 0;
+        max-width: 48%;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .workspace-main {
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .code-pane {
+        height: 100%;
+        min-width: 0;
+        min-height: 0;
+        background: rgba(20, 24, 35, 0.82);
+        display: grid;
+        grid-template-rows: 34px minmax(0, 1fr) 26px;
+        overflow: hidden;
+      }
+
+      .code-pane-head {
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 0 8px 0 10px;
+        background: rgba(16, 20, 30, 0.9);
+      }
+
+      .code-pane-title {
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #a9bce4;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .code-pane-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: 0;
+      }
+
+      .code-pane-btn {
+        width: 22px;
+        height: 22px;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: transparent;
+        color: #9cb2de;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+
+      .code-pane-btn:hover {
+        border-color: var(--border);
+        background: rgba(140, 169, 230, 0.16);
+        color: #d8e5ff;
+      }
+
+      .code-pane-btn svg {
+        width: 13px;
+        height: 13px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+
+      .code-pane-body {
+        height: 100%;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: var(--file-pane-width, 250px) 8px minmax(0, 1fr);
+        overflow: hidden;
+      }
+
+      .pane-resizer {
+        cursor: col-resize;
+        background: rgba(72, 103, 163, 0.3);
+        transition: background 0.12s ease;
+      }
+
+      .pane-resizer:hover,
+      .pane-resizer.dragging {
+        background: rgba(102, 162, 255, 0.62);
+      }
+
+      .file-pane {
+        min-width: 0;
+        min-height: 0;
+        border-right: 1px solid var(--border);
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        background: rgba(15, 19, 28, 0.7);
+        overflow: hidden;
+      }
+
+      .file-filter-wrap {
+        padding: 8px 8px 6px;
+      }
+
+      .file-filter {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: rgba(18, 24, 36, 0.82);
+        color: var(--text);
+        font-size: 12px;
+        padding: 7px 9px;
+        outline: none;
+      }
+
+      .file-filter:focus {
+        border-color: rgba(112, 165, 255, 0.86);
+        box-shadow: 0 0 0 2px rgba(102, 162, 255, 0.22);
+      }
+
+      .file-list {
+        height: 100%;
+        min-height: 0;
+        overflow-y: scroll;
+        overflow-x: hidden;
+        scrollbar-gutter: stable both-edges;
+        padding: 4px 4px 8px 6px;
+        scrollbar-width: auto;
+        scrollbar-color: rgba(120, 152, 214, 0.55) transparent;
+      }
+
+      .file-list::-webkit-scrollbar {
+        width: 12px;
+      }
+
+      .file-list::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .file-list::-webkit-scrollbar-thumb {
+        background: linear-gradient(
+          180deg,
+          rgba(116, 154, 232, 0.7),
+          rgba(91, 131, 214, 0.55)
+        );
+        border: 3px solid transparent;
+        border-radius: 10px;
+        background-clip: padding-box;
+      }
+
+      .file-item {
+        width: 100%;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        background: transparent;
+        color: #b7c7ea;
+        text-align: left;
+        font-size: 12px;
+        line-height: 1.35;
+        padding: 6px 8px;
+        margin-bottom: 2px;
+        cursor: pointer;
+      }
+
+      .file-item.dir {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-weight: 600;
+      }
+
+      .file-tree-toggle {
+        width: 12px;
+        flex: 0 0 12px;
+        color: #a5b9e2;
+        font-size: 11px;
+      }
+
+      .file-tree-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .file-item:hover {
+        border-color: rgba(130, 168, 244, 0.5);
+        background: rgba(108, 150, 236, 0.13);
+        color: #e0ebff;
+      }
+
+      .file-item.active {
+        border-color: rgba(117, 167, 255, 0.85);
+        background: rgba(102, 162, 255, 0.2);
+        color: #f0f5ff;
+      }
+
+      .file-item.dirty::before {
+        content: "* ";
+        color: #f9be69;
+      }
+
+      .file-empty {
+        font-size: 12px;
+        color: var(--muted);
+        padding: 8px;
+      }
+
+      .code-view {
+        min-width: 0;
+        min-height: 0;
+        position: relative;
+        display: grid;
+        grid-template-rows: 30px minmax(0, 1fr);
+      }
+
+      .code-view-head {
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+        font-size: 12px;
+        color: #afc2ea;
+        background: rgba(15, 19, 28, 0.82);
+      }
+
+      .code-file-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .monaco-host {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .editor-empty {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        font-size: 12px;
+        padding: 18px;
+        text-align: center;
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .editor-empty.hidden {
+        display: none;
+      }
+
+      .code-pane-foot {
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        padding: 0 10px;
+        font-size: 11px;
+        color: var(--muted);
+        background: rgba(15, 19, 28, 0.82);
+        overflow: hidden;
+      }
+
+      .code-pane-foot > span {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .console {
+        border-top: 1px solid var(--border);
+        background: rgba(9, 12, 18, 0.92);
+        height: 170px;
+        display: grid;
+        grid-template-rows: 34px 1fr;
+        position: relative;
+        z-index: 5;
+      }
+
+      .console.minimized {
+        height: 34px;
+        grid-template-rows: 34px 0;
+      }
+
+      .console-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+      }
+
+      .console-head strong {
+        font-size: 12px;
+        color: #c7d5f6;
+      }
+
+      .console-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .console-actions button {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: transparent;
+        color: var(--muted);
+        padding: 4px 8px;
+        font-size: 11px;
+        cursor: pointer;
+      }
+
+      .console-actions button:hover {
+        color: var(--text);
+        border-color: rgba(130, 168, 244, 0.65);
+      }
+
+      .console-body {
+        margin: 0;
+        padding: 10px 12px 12px;
+        overflow: auto;
+        scrollbar-width: auto;
+        scrollbar-color: rgba(120, 152, 214, 0.55) transparent;
+        font-family: Consolas, "Cascadia Code", monospace;
+        font-size: 12px;
+        line-height: 1.38;
+        color: #bfd7ff;
+        white-space: pre-wrap;
+      }
+
+      .console-body::-webkit-scrollbar {
+        width: 13px;
+      }
+
+      .console-body::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .console-body::-webkit-scrollbar-thumb {
+        background: linear-gradient(
+          180deg,
+          rgba(116, 154, 232, 0.7),
+          rgba(91, 131, 214, 0.55)
+        );
+        border: 3px solid transparent;
+        border-radius: 11px;
+        background-clip: padding-box;
+      }
+
+      .confirm-overlay,
+      .path-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(6, 9, 15, 0.58);
+        backdrop-filter: blur(5px);
+        display: grid;
+        place-items: center;
+        z-index: 40;
+      }
+
+      .confirm-overlay.hidden,
+      .path-modal-overlay.hidden {
+        display: none;
+      }
+
+      .confirm-modal,
+      .path-modal {
+        width: min(520px, calc(100vw - 36px));
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: rgba(20, 25, 36, 0.98);
+        box-shadow: 0 22px 56px rgba(0, 0, 0, 0.45);
+        padding: 14px 14px 12px;
+      }
+
+      .confirm-title,
+      .path-modal-title {
+        margin: 0;
+        font-size: 14px;
+        color: #e5eeff;
+      }
+
+      .confirm-body,
+      .path-modal-body {
+        margin: 8px 0 0;
+        font-size: 12px;
+        line-height: 1.45;
+        color: var(--muted);
+      }
+
+      .confirm-actions,
+      .path-modal-actions {
+        margin-top: 12px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .path-modal-actions {
+        justify-content: space-between;
+      }
+
+      .path-modal-action-right {
+        display: flex;
+        gap: 8px;
+      }
+
+      .path-modal-browse-btn svg {
+        width: 13px;
+        height: 13px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        margin-right: 5px;
+        vertical-align: text-bottom;
+      }
+
+      .path-modal-browse-btn.hidden {
+        visibility: hidden;
+        pointer-events: none;
+      }
+
+      .about-modal {
+        width: min(620px, calc(100vw - 36px));
+        padding: 0;
+        overflow: hidden;
+        border-color: rgba(118, 152, 221, 0.34);
+        box-shadow:
+          0 26px 64px rgba(0, 0, 0, 0.5),
+          0 0 0 1px rgba(102, 162, 255, 0.1);
+        position: relative;
+      }
+
+      .about-modal.about-opening {
+        animation: about-modal-in 360ms cubic-bezier(0.16, 0.84, 0.24, 1);
+      }
+
+      .about-modal.about-closing {
+        animation: about-modal-out 220ms cubic-bezier(0.42, 0, 0.58, 1) forwards;
+      }
+
+      .about-modal::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 100%;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(75, 195, 122, 0.9), rgba(102, 162, 255, 0.9), rgba(75, 195, 122, 0.9));
+        z-index: 1;
+      }
+
+      .about-modal::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+          repeating-linear-gradient(
+            180deg,
+            rgba(170, 200, 255, 0.06) 0px,
+            rgba(170, 200, 255, 0.06) 1px,
+            transparent 1px,
+            transparent 3px
+          );
+        mix-blend-mode: screen;
+        opacity: 0;
+      }
+
+      .about-modal.about-opening::after {
+        animation: about-scan 650ms steps(2, end) 1;
+      }
+
+      .about-modal.about-closing::after {
+        animation: about-scan-out 220ms linear 1;
+      }
+
+      @keyframes about-modal-in {
+        from {
+          transform: translateY(14px) scale(0.965) skewX(-0.5deg);
+          opacity: 0;
+          filter: blur(2px);
+        }
+        34% {
+          transform: translateY(-1px) scale(1.006) skewX(0.2deg);
+          opacity: 1;
+          filter: blur(0);
+        }
+        52% {
+          transform: translateY(0) scale(0.998) skewX(-0.12deg);
+        }
+        100% {
+          transform: translateY(0) scale(1);
+          opacity: 1;
+          filter: blur(0);
+        }
+      }
+
+      @keyframes about-modal-out {
+        0% {
+          transform: translateY(0) scale(1);
+          opacity: 1;
+          filter: blur(0);
+        }
+        100% {
+          transform: translateY(8px) scale(0.987);
+          opacity: 0;
+          filter: blur(1.1px);
+        }
+      }
+
+      @keyframes about-scan {
+        0% {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+        18% {
+          opacity: 0.35;
+        }
+        42% {
+          opacity: 0.15;
+          transform: translateY(2px);
+        }
+        100% {
+          opacity: 0;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes about-scan-out {
+        0% {
+          opacity: 0.2;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      .about-hero {
+        padding: 18px 18px 14px;
+        border-bottom: 1px solid var(--border);
+        background:
+          radial-gradient(560px 220px at 90% -20%, rgba(102, 162, 255, 0.34), transparent 58%),
+          radial-gradient(420px 180px at -20% 120%, rgba(83, 129, 219, 0.25), transparent 62%),
+          linear-gradient(180deg, rgba(19, 25, 37, 0.98), rgba(16, 20, 30, 0.96));
+      }
+
+      .about-brand {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+      }
+
+      .about-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        color: #4bc37a;
+        border: 1px solid rgba(75, 195, 122, 0.38);
+        background: rgba(75, 195, 122, 0.14);
+        box-shadow: 0 0 0 1px rgba(75, 195, 122, 0.1), 0 8px 20px rgba(0, 0, 0, 0.22);
+      }
+
+      .about-icon svg {
+        width: 22px;
+        height: 22px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+      }
+
+      .about-title-wrap {
+        text-align: left;
+      }
+
+      .about-title {
+        margin: 0;
+        font-size: 20px;
+        letter-spacing: 0.03em;
+        color: #e7efff;
+      }
+
+      .about-subtitle {
+        margin: 3px 0 0;
+        font-size: 12px;
+        color: #b4c7ef;
+      }
+
+      .about-content {
+        padding: 14px 18px 12px;
+        text-align: center;
+      }
+
+      .about-copy {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+
+      .about-chips {
+        margin-top: 12px;
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .about-chip {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 4px 9px;
+        font-size: 11px;
+        color: #c7d8fb;
+        background: rgba(120, 157, 228, 0.14);
+      }
+
+      .about-meta-grid {
+        margin-top: 13px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .about-meta-item {
+        border: 1px solid rgba(130, 163, 229, 0.24);
+        border-radius: 10px;
+        background: rgba(32, 41, 59, 0.5);
+        padding: 7px 8px;
+      }
+
+      .about-meta-label {
+        display: block;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #9eb4e2;
+      }
+
+      .about-meta-value {
+        display: block;
+        margin-top: 4px;
+        font-size: 11px;
+        color: #e2ecff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .about-modal .confirm-actions {
+        padding: 0 18px 16px;
+        justify-content: center;
+        gap: 9px;
+      }
+
+      .about-btn-primary {
+        border-color: rgba(103, 163, 255, 0.72);
+        background: linear-gradient(180deg, rgba(101, 164, 255, 0.33), rgba(82, 139, 234, 0.24));
+        color: #ecf4ff;
+      }
+
+      .about-btn-primary:hover {
+        border-color: rgba(122, 176, 255, 0.9);
+        box-shadow: 0 0 0 2px rgba(102, 162, 255, 0.2);
+      }
+
+      .about-btn-muted {
+        background: rgba(126, 151, 203, 0.12);
+      }
+
+      .about-modal .confirm-actions .confirm-btn {
+        position: relative;
+        overflow: hidden;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-width: 104px;
+      }
+
+      .about-modal .confirm-actions .confirm-btn::before {
+        content: "";
+        position: absolute;
+        inset: -2px -24px;
+        background: linear-gradient(
+          120deg,
+          transparent 20%,
+          rgba(255, 255, 255, 0.02) 38%,
+          rgba(255, 255, 255, 0.22) 50%,
+          rgba(255, 255, 255, 0.02) 62%,
+          transparent 80%
+        );
+        transform: translateX(-125%) skewX(-18deg);
+        pointer-events: none;
+      }
+
+      .about-modal .confirm-actions .confirm-btn:hover::before {
+        animation: about-btn-sweep 820ms ease-out 1;
+      }
+
+      @keyframes about-btn-sweep {
+        0% {
+          transform: translateX(-125%) skewX(-18deg);
+        }
+        100% {
+          transform: translateX(125%) skewX(-18deg);
+        }
+      }
+
+      .about-btn-icon {
+        width: 13px;
+        height: 13px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        flex: 0 0 auto;
+      }
+
+      .confirm-btn {
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: transparent;
+        color: var(--text);
+        font-size: 12px;
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+
+      .confirm-btn:hover {
+        border-color: rgba(130, 168, 244, 0.65);
+      }
+
+      .confirm-btn.danger {
+        border-color: rgba(242, 105, 117, 0.48);
+        background: rgba(242, 105, 117, 0.2);
+        color: #ffd8dc;
+      }
+
+      .path-modal-input {
+        margin-top: 10px;
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: rgba(16, 21, 31, 0.88);
+        color: var(--text);
+        font-size: 12px;
+        padding: 8px 10px;
+        outline: none;
+      }
+
+      .path-modal-input:focus {
+        border-color: rgba(112, 165, 255, 0.86);
+        box-shadow: 0 0 0 2px rgba(102, 162, 255, 0.22);
+      }
+
+      .path-modal-input.invalid {
+        border-color: rgba(242, 105, 117, 0.85);
+        box-shadow: 0 0 0 2px rgba(242, 105, 117, 0.2);
+      }
+
+      body[data-theme="light"] {
+        --bg: #e8edf6;
+        --panel: #f7faff;
+        --panel-2: #eef3ff;
+        --text: #1f2a3f;
+        --muted: #5c6d90;
+        --border: rgba(100, 130, 184, 0.26);
+      }
+
+      body[data-theme="light"] .titlebar {
+        background: rgba(246, 249, 255, 0.95);
+      }
+
+      body[data-theme="light"] .workspace-header {
+        background: rgba(238, 244, 255, 0.88);
+      }
+
+      body[data-theme="light"] .code-pane {
+        background: rgba(243, 248, 255, 0.94);
+      }
+
+      body[data-theme="light"] .code-pane-head,
+      body[data-theme="light"] .code-view-head,
+      body[data-theme="light"] .code-pane-foot {
+        background: rgba(235, 242, 255, 0.94);
+      }
+
+      body[data-theme="light"] .file-pane {
+        background: rgba(238, 244, 255, 0.88);
+      }
+
+      body[data-theme="light"] .file-filter {
+        background: rgba(248, 251, 255, 0.98);
+        color: #1f2a3f;
+      }
+
+      body[data-theme="light"] .file-item {
+        color: #345079;
+      }
+
+      body[data-theme="light"] .file-item:hover {
+        color: #1c365c;
+        background: rgba(167, 189, 224, 0.34);
+      }
+
+      body[data-theme="light"] .file-item.active {
+        color: #1b365a;
+        background: rgba(145, 176, 224, 0.42);
+      }
+
+      body[data-theme="light"] .console {
+        background: rgba(239, 245, 255, 0.95);
+      }
+
+      body[data-theme="light"] .console-body {
+        color: #27416f;
+      }
+
+      body[data-theme="light"] .title {
+        color: #2f4363;
+      }
+
+      body[data-theme="light"] .workspace-action-btn {
+        color: #51678f;
+      }
+
+      body[data-theme="light"] .workspace-action-btn:hover {
+        color: #2c446a;
+        background: rgba(168, 190, 226, 0.25);
+      }
+
+      body[data-theme="light"] .workspace-action-btn.active {
+        color: #1f3d68;
+        background: rgba(142, 174, 223, 0.44);
+        border-color: rgba(108, 145, 202, 0.72);
+      }
+
+      body[data-theme="light"] .confirm-modal,
+      body[data-theme="light"] .path-modal {
+        background: rgba(245, 250, 255, 0.98);
+      }
+
+      body[data-theme="light"] .confirm-title,
+      body[data-theme="light"] .path-modal-title {
+        color: #1f3559;
+      }
+
+      body[data-theme="light"] .path-modal-input {
+        background: rgba(249, 252, 255, 0.98);
+        color: #1f2f4b;
+      }
+
+      body[data-theme="light"] .about-hero {
+        background:
+          radial-gradient(560px 220px at 90% -20%, rgba(120, 160, 230, 0.32), transparent 58%),
+          radial-gradient(420px 180px at -20% 120%, rgba(104, 139, 212, 0.25), transparent 62%),
+          linear-gradient(180deg, rgba(231, 240, 255, 0.95), rgba(226, 236, 252, 0.94));
+      }
+
+      body[data-theme="light"] .about-title {
+        color: #1e3559;
+      }
+
+      body[data-theme="light"] .about-subtitle {
+        color: #3f5781;
+      }
+
+      body[data-theme="light"] .about-icon {
+        background: rgba(75, 195, 122, 0.12);
+        border-color: rgba(75, 195, 122, 0.32);
+      }
+
+      body[data-theme="light"] .about-chip {
+        color: #24426e;
+        background: rgba(123, 158, 220, 0.2);
+      }
+
+      body[data-theme="light"] .about-meta-item {
+        background: rgba(228, 238, 253, 0.76);
+        border-color: rgba(118, 151, 209, 0.28);
+      }
+
+      body[data-theme="light"] .about-meta-label {
+        color: #4c6898;
+      }
+
+      body[data-theme="light"] .about-meta-value {
+        color: #223f6b;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="titlebar">
+      <div class="titlebar-left">
+        <div class="title-meta">
+          <span class="status-indicator disconnected" id="status-indicator" title="Monaco disconnected">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m12.5 17-.5-1-.5 1h1z"></path>
+              <path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"></path>
+              <circle cx="15" cy="12" r="1"></circle>
+              <circle cx="9" cy="12" r="1"></circle>
+            </svg>
+          </span>
+          <span class="title">ChaosEdit</span>
+        </div>
+      </div>
+      <div class="window-controls">
+        <button id="min-btn" type="button" aria-label="Minimize">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><line x1="3" y1="8" x2="13" y2="8"></line></svg>
+        </button>
+        <button id="max-btn" type="button" aria-label="Maximize">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1"></rect></svg>
+        </button>
+        <button id="close-btn" class="close" type="button" aria-label="Close">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="workspace">
+        <div class="workspace-header">
+          <div class="workspace-left">
+            <h1>Tools</h1>
+            <div class="workspace-actions">
+              <button class="workspace-action-btn" id="open-folder-btn" type="button" aria-label="Open workspace folder" title="Open folder">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v2"></path>
+                  <path d="M3 10h18l-2 9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                </svg>
+              </button>
+              <button class="workspace-action-btn" id="reload-workspace-btn" type="button" aria-label="Reload app" title="Reload app">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 12a9 9 0 0 1 15.5-6.4L21 8"></path>
+                  <path d="M21 3v5h-5"></path>
+                  <path d="M21 12a9 9 0 0 1-15.5 6.4L3 16"></path>
+                  <path d="M3 21v-5h5"></path>
+                </svg>
+              </button>
+              <button class="workspace-action-btn" id="toggle-console-btn" type="button" aria-label="Show or hide console panel" title="Show/Hide console">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <polyline points="4 17 10 11 4 5"></polyline>
+                  <line x1="12" y1="19" x2="20" y2="19"></line>
+                </svg>
+              </button>
+              <button class="workspace-action-btn" id="theme-btn" type="button" aria-label="Toggle theme" title="Toggle theme">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="4"></circle>
+                  <line x1="12" y1="2" x2="12" y2="5"></line>
+                  <line x1="12" y1="19" x2="12" y2="22"></line>
+                  <line x1="2" y1="12" x2="5" y2="12"></line>
+                  <line x1="19" y1="12" x2="22" y2="12"></line>
+                  <line x1="4.9" y1="4.9" x2="7" y2="7"></line>
+                  <line x1="17" y1="17" x2="19.1" y2="19.1"></line>
+                  <line x1="17" y1="7" x2="19.1" y2="4.9"></line>
+                  <line x1="4.9" y1="19.1" x2="7" y2="17"></line>
+                </svg>
+              </button>
+              <button class="workspace-action-btn" id="about-btn" type="button" aria-label="About ChaosEdit" title="About ChaosEdit">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <line x1="12" y1="10" x2="12" y2="16"></line>
+                  <circle cx="12" cy="7" r="1"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <span class="workspace-status" id="workspace-status">Ready</span>
+        </div>
+
+        <div class="workspace-main">
+          <section class="code-pane" id="code-pane">
+            <div class="code-pane-head">
+              <div class="code-pane-actions">
+                <button class="code-pane-btn" id="undo-file-btn" type="button" aria-label="Undo edit" title="Undo">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 14 4 9l5-5"></path>
+                    <path d="M4 9h10a6 6 0 0 1 0 12h-1"></path>
+                  </svg>
+                </button>
+                <button class="code-pane-btn" id="redo-file-btn" type="button" aria-label="Redo edit" title="Redo">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m15 14 5-5-5-5"></path>
+                    <path d="M20 9H10a6 6 0 0 0 0 12h1"></path>
+                  </svg>
+                </button>
+                <button class="code-pane-btn" id="new-file-btn" type="button" aria-label="Create new file" title="New file">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M14 3v6h6"></path>
+                    <path d="M5 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"></path>
+                    <line x1="12" y1="12" x2="12" y2="18"></line>
+                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                  </svg>
+                </button>
+                <button class="code-pane-btn" id="refresh-files-btn" type="button" aria-label="Refresh file list" title="Refresh files">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 12a9 9 0 0 1 15.5-6.4L21 8"></path>
+                    <path d="M21 3v5h-5"></path>
+                    <path d="M21 12a9 9 0 0 1-15.5 6.4L3 16"></path>
+                    <path d="M3 21v-5h5"></path>
+                  </svg>
+                </button>
+                <button class="code-pane-btn" id="save-file-btn" type="button" aria-label="Save current file" title="Save file">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"></path>
+                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                    <polyline points="7 3 7 8 15 8"></polyline>
+                  </svg>
+                </button>
+                <button class="code-pane-btn" id="save-as-file-btn" type="button" aria-label="Save as new file" title="Save as">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8"></path>
+                    <path d="m16 3 5 5-5 5"></path>
+                    <path d="M21 8h-8"></path>
+                    <polyline points="8 21 8 13 16 13 16 21"></polyline>
+                  </svg>
+                </button>
+                <button class="code-pane-btn" id="delete-file-btn" type="button" aria-label="Delete current file" title="Delete file">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4h8v2"></path>
+                    <path d="m6 6 1 14h10l1-14"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="code-pane-body" id="code-pane-body">
+              <aside class="file-pane">
+                <div class="file-filter-wrap">
+                  <input id="file-filter-input" class="file-filter" type="text" placeholder="Filter files..." autocomplete="off" />
+                </div>
+                <div class="file-list" id="file-list"></div>
+              </aside>
+              <div class="pane-resizer" id="pane-resizer" aria-hidden="true"></div>
+              <section class="code-view">
+                <div class="code-view-head">
+                  <span class="code-file-name" id="current-file-label">No file selected</span>
+                </div>
+                <div class="monaco-host" id="monaco-host">
+                  <div class="editor-empty" id="editor-empty">
+                    Select a file to edit. Changes are saved directly to this workspace.
+                  </div>
+                </div>
+              </section>
+            </div>
+            <div class="code-pane-foot">
+              <span id="editor-status">Editor ready</span>
+            </div>
+          </section>
+        </div>
+
+        <section class="console" id="console">
+          <div class="console-head">
+            <strong>Console</strong>
+            <div class="console-actions">
+              <button id="clear-console-btn" type="button">Clear</button>
+            </div>
+          </div>
+          <pre class="console-body" id="console-body"></pre>
+        </section>
+      </section>
+    </main>
+
+    <div class="confirm-overlay hidden" id="confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div class="confirm-modal about-modal">
+        <h2 class="confirm-title" id="confirm-title">Confirm</h2>
+        <p class="confirm-body" id="confirm-body">Continue?</p>
+        <div class="confirm-actions">
+          <button class="confirm-btn" id="confirm-cancel-btn" type="button">Cancel</button>
+          <button class="confirm-btn" id="confirm-ok-btn" type="button">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="path-modal-overlay hidden" id="path-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="path-modal-title">
+      <div class="path-modal">
+        <h2 class="path-modal-title" id="path-modal-title">Enter File Path</h2>
+        <p class="path-modal-body" id="path-modal-body">Use a path relative to workspace root.</p>
+        <input id="path-modal-input" class="path-modal-input" type="text" autocomplete="off" spellcheck="false" />
+        <div class="path-modal-actions">
+          <button class="confirm-btn path-modal-browse-btn hidden" id="path-modal-browse-btn" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v2"></path>
+              <path d="M3 10h18l-2 9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            </svg>
+            Browse...
+          </button>
+          <div class="path-modal-action-right">
+            <button class="confirm-btn" id="path-modal-cancel-btn" type="button">Cancel</button>
+            <button class="confirm-btn" id="path-modal-ok-btn" type="button">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="confirm-overlay hidden" id="about-overlay" role="dialog" aria-modal="true" aria-labelledby="about-title">
+      <div class="confirm-modal about-modal" id="about-modal-panel">
+        <div class="about-hero" id="about-hero">
+          <div class="about-brand">
+            <div class="about-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="m12.5 17-.5-1-.5 1h1z"></path>
+                <path d="M15 22a1 1 0 0 0 1-1v-1a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20v1a1 1 0 0 0 1 1z"></path>
+                <circle cx="15" cy="12" r="1"></circle>
+                <circle cx="9" cy="12" r="1"></circle>
+              </svg>
+            </div>
+            <div class="about-title-wrap">
+              <h2 class="about-title" id="about-title">ChaosEdit</h2>
+              <p class="about-subtitle">Standalone text/file editor</p>
+            </div>
+          </div>
+        </div>
+        <div class="about-content">
+          <p class="about-copy">
+            Lightweight, fast Monaco-based editing for local files with a clean UI and custom controls.
+          </p>
+          <div class="about-meta-grid" aria-label="ChaosEdit runtime details">
+            <div class="about-meta-item">
+              <span class="about-meta-label">Workspace</span>
+              <span class="about-meta-value" id="about-meta-workspace">Loading...</span>
+            </div>
+            <div class="about-meta-item">
+              <span class="about-meta-label">Theme</span>
+              <span class="about-meta-value" id="about-meta-theme">Loading...</span>
+            </div>
+            <div class="about-meta-item">
+              <span class="about-meta-label">Monaco</span>
+              <span class="about-meta-value" id="about-meta-monaco">Loading...</span>
+            </div>
+          </div>
+          <div class="about-chips" aria-hidden="true">
+            <span class="about-chip">Monaco Core</span>
+            <span class="about-chip">Portable</span>
+            <span class="about-chip">Lightweight</span>
+            <span class="about-chip">Built by DEADCODEXO</span>
+          </div>
+        </div>
+        <div class="confirm-actions">
+          <button class="confirm-btn about-btn-primary" id="about-github-btn" type="button">
+            <svg class="about-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.9-2.6c3-.3 6.1-1.5 6.1-7A5.4 5.4 0 0 0 20 4.8 5 5 0 0 0 19.9 1S18.7.7 16 2.5a13.4 13.4 0 0 0-7 0C6.3.7 5.1 1 5.1 1A5 5 0 0 0 5 4.8 5.4 5.4 0 0 0 3.8 8.5c0 5.4 3.1 6.6 6.1 7A3.4 3.4 0 0 0 9 18.1V22"></path>
+            </svg>
+            <span>GitHub</span>
+          </button>
+          <button class="confirm-btn about-btn-muted" id="about-close-btn" type="button">
+            <svg class="about-btn-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M18 6 6 18"></path>
+              <path d="m6 6 12 12"></path>
+            </svg>
+            <span>Close</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./vendor/powerglitch.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

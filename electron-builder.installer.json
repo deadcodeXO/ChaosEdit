@@ -1,0 +1,16 @@
+{
+  "extends": "./standalone-editor/electron-builder.json",
+  "directories": {
+    "output": "release-chaos-installer"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
+  }
+}
