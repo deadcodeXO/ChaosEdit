@@ -1,5 +1,21 @@
 {
-  "extends": "./electron-builder.standalone.json",
+  "appId": "net.functionabuse.chaosedit",
+  "productName": "ChaosEdit",
+  "asar": true,
+  "asarUnpack": [
+    "node_modules/monaco-editor/min/vs/**"
+  ],
+  "files": [
+    "**/*",
+    "!**/*.map",
+    "!release/**",
+    "!release-installer/**",
+    "!dist/**",
+    "!boxes.png",
+    "!goods.png",
+    "!uglygraybox.png",
+    "!neweditor.png"
+  ],
   "directories": {
     "output": "release-installer"
   },

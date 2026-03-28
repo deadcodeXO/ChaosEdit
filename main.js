@@ -6,13 +6,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   existsSync,
-  mkdirSync,
-  readFileSync,
   readdirSync,
   statSync,
-  unlinkSync,
-  writeFileSync,
 } from "node:fs";
+import {
+  mkdir as mkdirAsync,
+  readdir as readdirAsync,
+  readFile as readFileAsync,
+  rename as renameAsync,
+  stat as statAsync,
+  unlink as unlinkAsync,
+  writeFile as writeFileAsync,
+} from "node:fs/promises";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -317,6 +322,27 @@ function resolveWorkspacePath(relativePath) {
   return resolved;
 }
 
+async function writeWorkspaceFileAtomically(absolutePath, contents) {
+  const parentDir = path.dirname(absolutePath);
+  await mkdirAsync(parentDir, { recursive: true });
+
+  const tempSuffix = `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 10)}`;
+  const tempPath = path.join(parentDir, `.${path.basename(absolutePath)}.tmp-${process.pid}-${tempSuffix}`);
+
+  try {
+    // Write into the destination directory first so rename is atomic on the same volume.
+    await writeFileAsync(tempPath, contents, { encoding: "utf8", flag: "wx" });
+    await renameAsync(tempPath, absolutePath);
+  } catch (error) {
+    try {
+      await unlinkAsync(tempPath);
+    } catch {
+      // Ignore temp cleanup errors.
+    }
+    throw error;
+  }
+}
+
 function getWorkspaceFileExtension(fileName) {
   return path.extname(fileName.toLowerCase());
 }
@@ -340,15 +366,27 @@ function isKnownTextWorkspaceFile(fileName) {
   return WORKSPACE_KNOWN_TEXT_EXTENSIONS.has(extension);
 }
 
-function listWorkspaceFiles() {
+async function listWorkspaceFiles() {
   const files = [];
 
-  const walk = relativeDir => {
+  const walk = async relativeDir => {
+    if (files.length >= MAX_WORKSPACE_FILES) return;
+
     const absoluteDir = relativeDir
       ? path.join(workspaceRoot, relativeDir)
       : workspaceRoot;
 
-    const entries = readdirSync(absoluteDir, { withFileTypes: true })
+    let entries = [];
+    try {
+      entries = await readdirAsync(absoluteDir, { withFileTypes: true });
+    } catch (error) {
+      if (error?.code === "EACCES" || error?.code === "EPERM") {
+        return;
+      }
+      throw error;
+    }
+
+    entries = entries
       .sort((a, b) => a.name.localeCompare(b.name));
 
     for (const entry of entries) {
@@ -359,7 +397,7 @@ function listWorkspaceFiles() {
 
       if (entry.isDirectory()) {
         if (WORKSPACE_IGNORED_DIRS.has(entry.name)) continue;
-        walk(relativePath);
+        await walk(relativePath);
         if (files.length >= MAX_WORKSPACE_FILES) return;
         continue;
       }
@@ -372,7 +410,7 @@ function listWorkspaceFiles() {
     }
   };
 
-  walk("");
+  await walk("");
   return files;
 }
 
@@ -440,7 +478,7 @@ async function startMonacoAssetServer() {
   if (monacoAssetServer && monacoAssetBaseUrl) return monacoAssetBaseUrl;
 
   const port = await findOpenPort(MONACO_ASSET_PORT_START, MONACO_ASSET_PORT_END);
-  const server = http.createServer((request, response) => {
+  const server = http.createServer(async (request, response) => {
     try {
       const requestUrl = new URL(request.url || "/", `http://${MONACO_ASSET_HOST}`);
       const pathname = decodeURIComponent(requestUrl.pathname || "/");
@@ -473,13 +511,24 @@ async function startMonacoAssetServer() {
         return;
       }
 
-      if (!existsSync(absolutePath) || !statSync(absolutePath).isFile()) {
+      let fileStat = null;
+      try {
+        fileStat = await statAsync(absolutePath);
+      } catch (error) {
+        if (error?.code === "ENOENT" || error?.code === "ENOTDIR") {
+          response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+          response.end("Not Found");
+          return;
+        }
+        throw error;
+      }
+      if (!fileStat.isFile()) {
         response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
         response.end("Not Found");
         return;
       }
 
-      const body = readFileSync(absolutePath);
+      const body = await readFileAsync(absolutePath);
       response.writeHead(200, {
         "Content-Type": getContentType(absolutePath),
         "Cache-Control": "no-store",
@@ -572,14 +621,9 @@ ipcMain.handle("show-context-menu", () => {
     },
     {
       label: "Open Workspace Folder",
-      click: async () => {
+      click: () => {
         if (!mainWindow || mainWindow.isDestroyed()) return;
-        const result = await dialog.showOpenDialog(mainWindow, {
-          properties: ["openDirectory"],
-          defaultPath: workspaceRoot,
-        });
-        if (result.canceled || !result.filePaths?.length) return;
-        workspaceRoot = result.filePaths[0];
+        mainWindow.webContents.send("request-open-workspace-folder");
       },
     },
   ];
@@ -645,19 +689,19 @@ ipcMain.handle("workspace-set-root", async (_event, rootPathInput) => {
   };
 });
 
-ipcMain.handle("workspace-list-files", () => {
-  const files = listWorkspaceFiles();
+ipcMain.handle("workspace-list-files", async () => {
+  const files = await listWorkspaceFiles();
   return {
     files,
     truncated: files.length >= MAX_WORKSPACE_FILES,
   };
 });
 
-ipcMain.handle("workspace-read-file", (_event, relativePath) => {
+ipcMain.handle("workspace-read-file", async (_event, relativePath) => {
   const absolutePath = resolveWorkspacePath(relativePath);
   let fileStat = null;
   try {
-    fileStat = statSync(absolutePath);
+    fileStat = await statAsync(absolutePath);
   } catch (error) {
     if (error?.code === "ENOENT" || error?.code === "ENOTDIR") {
       return {
@@ -674,14 +718,14 @@ ipcMain.handle("workspace-read-file", (_event, relativePath) => {
 
   return {
     path: toPosixPath(relativePath),
-    contents: readFileSync(absolutePath, "utf8"),
+    contents: await readFileAsync(absolutePath, "utf8"),
     size: fileStat.size,
     mtimeMs: fileStat.mtimeMs,
     missing: false,
   };
 });
 
-ipcMain.handle("workspace-write-file", (_event, relativePath, contents) => {
+ipcMain.handle("workspace-write-file", async (_event, relativePath, contents) => {
   if (typeof contents !== "string") {
     throw new Error("Expected file contents as a string.");
   }
@@ -694,9 +738,8 @@ ipcMain.handle("workspace-write-file", (_event, relativePath, contents) => {
     );
   }
 
-  mkdirSync(path.dirname(absolutePath), { recursive: true });
-  writeFileSync(absolutePath, contents, "utf8");
-  const updatedStat = statSync(absolutePath);
+  await writeWorkspaceFileAtomically(absolutePath, contents);
+  const updatedStat = await statAsync(absolutePath);
   return {
     path: toPosixPath(relativePath),
     size: updatedStat.size,
@@ -705,11 +748,11 @@ ipcMain.handle("workspace-write-file", (_event, relativePath, contents) => {
   };
 });
 
-ipcMain.handle("workspace-delete-file", (_event, relativePath) => {
+ipcMain.handle("workspace-delete-file", async (_event, relativePath) => {
   const absolutePath = resolveWorkspacePath(relativePath);
   let fileStat = null;
   try {
-    fileStat = statSync(absolutePath);
+    fileStat = await statAsync(absolutePath);
   } catch (error) {
     if (error?.code === "ENOENT" || error?.code === "ENOTDIR") {
       return {
@@ -723,7 +766,7 @@ ipcMain.handle("workspace-delete-file", (_event, relativePath) => {
     throw new Error(`Not a file: ${relativePath}`);
   }
 
-  unlinkSync(absolutePath);
+  await unlinkAsync(absolutePath);
   return {
     path: toPosixPath(relativePath),
     missing: false,
@@ -736,7 +779,16 @@ ipcMain.handle("workspace-monaco-base-url", () => ({
 }));
 
 ipcMain.handle("open-external", async (_event, url) => {
-  await shell.openExternal(url);
+  if (typeof url !== "string" || !url.trim()) {
+    throw new Error("Expected a non-empty URL.");
+  }
+
+  const parsed = new URL(url);
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new Error(`Blocked external URL protocol: ${parsed.protocol}`);
+  }
+
+  await shell.openExternal(parsed.toString());
 });
 
 app.whenReady().then(async () => {

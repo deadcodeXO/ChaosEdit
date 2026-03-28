@@ -2,13 +2,19 @@
   "name": "chaosedit",
   "version": "1.0.0",
   "description": "ChaosEdit standalone local-first editor",
+  "author": "deadcodeXO",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/deadcodeXO/ChaosEdit.git"
+  },
   "private": false,
   "type": "module",
   "main": "main.js",
   "scripts": {
     "editor:app": "electron .",
     "editor:app:portable": "electron-builder --win portable --config electron-builder.standalone.json",
-    "editor:app:installer": "electron-builder --win nsis --config electron-builder.installer.standalone.json",
+    "editor:app:installer": "node scripts/build-installer.mjs",
+    "editor:app:installer:repo-output": "node scripts/build-installer.mjs --repo-output",
     "start": "electron ."
   },
   "dependencies": {

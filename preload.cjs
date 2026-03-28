@@ -18,4 +18,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("workspace-delete-file", relativePath),
   getWorkspaceMonacoBaseUrl: () =>
     ipcRenderer.invoke("workspace-monaco-base-url"),
+  onRequestOpenWorkspaceFolder: callback => {
+    if (typeof callback !== "function") return;
+    ipcRenderer.on("request-open-workspace-folder", () => {
+      callback();
+    });
+  },
 });

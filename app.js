@@ -79,10 +79,16 @@
     ".exe", ".dll", ".bin", ".db", ".sqlite", ".sqlite3", ".zip", ".rar", ".7z", ".tar",
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".mp3", ".mp4", ".wav", ".woff", ".woff2",
   ]);
+  const MAX_CONSOLE_LINES = 1200;
+  const consoleLines = [];
 
   const log = msg => {
     const ts = new Date().toLocaleTimeString();
-    els.consoleBody.textContent += `[${ts}] ${msg}\n`;
+    consoleLines.push(`[${ts}] ${String(msg)}`);
+    if (consoleLines.length > MAX_CONSOLE_LINES) {
+      consoleLines.splice(0, consoleLines.length - MAX_CONSOLE_LINES);
+    }
+    els.consoleBody.textContent = `${consoleLines.join("\n")}\n`;
     els.consoleBody.scrollTop = els.consoleBody.scrollHeight;
   };
 
@@ -659,7 +665,13 @@
         btn.className = "file-item dir";
         btn.type = "button";
         btn.style.paddingLeft = `${8 + depth * 14}px`;
-        btn.innerHTML = `<span class="file-tree-toggle">${expanded ? "v" : ">"}</span><span class="file-tree-label">${dir.name}</span>`;
+        const toggle = document.createElement("span");
+        toggle.className = "file-tree-toggle";
+        toggle.textContent = expanded ? "v" : ">";
+        const label = document.createElement("span");
+        label.className = "file-tree-label";
+        label.textContent = dir.name;
+        btn.append(toggle, label);
         btn.title = dir.path;
         btn.addEventListener("click", () => {
           if (expandedDirs.has(dir.path)) expandedDirs.delete(dir.path); else expandedDirs.add(dir.path);
@@ -689,10 +701,18 @@
     try {
       const [info, listed] = await Promise.all([api.getWorkspaceInfo(), api.listWorkspaceFiles()]);
       workspaceFiles = Array.isArray(listed?.files) ? listed.files : [];
+      const truncated = Boolean(listed?.truncated);
       const rootName = info?.rootName || "Workspace";
       currentWorkspaceRoot = info?.rootPath || currentWorkspaceRoot;
       updateAboutMeta();
-      setWorkspaceStatus(`Folder: ${rootName} - ${workspaceFiles.length} files`);
+      setWorkspaceStatus(
+        truncated
+          ? `Folder: ${rootName} - ${workspaceFiles.length} files (truncated)`
+          : `Folder: ${rootName} - ${workspaceFiles.length} files`
+      );
+      if (truncated) {
+        log("Workspace file list was truncated at the configured limit.");
+      }
       if (info?.isEmptyFolder) {
         setEditorStatus("Empty folder detected. Create a file to get started.");
       }
@@ -802,7 +822,7 @@
     }
     const suggested = activeFilePath
       ? activeFilePath.replace(/(\.[^./]+)?$/, "-copy$1")
-      : "notes/new-file.md";
+      : "new-file.md";
     const pathResult = await showPathModal({
       title: "Save File As",
       body: "Enter destination path relative to workspace root.",
@@ -833,7 +853,7 @@
       title: "Create New File",
       body: "Enter a new file path relative to workspace root.",
       okLabel: "Create",
-      suggestedPath: "notes/new-file.md",
+      suggestedPath: "new-file.md",
     });
     if (!pathResult?.accepted || !pathResult.value) return;
     const rel = pathResult.value;
@@ -982,11 +1002,17 @@
       log(`Open folder failed: ${error.message}`);
     }
   });
+  api.onRequestOpenWorkspaceFolder?.(() => {
+    els.openFolderBtn?.click();
+  });
   els.reloadWorkspaceBtn?.addEventListener("click", () => {
     log("Reloading ChaosEdit...");
     window.location.reload();
   });
-  els.clearConsoleBtn?.addEventListener("click", () => { els.consoleBody.textContent = ""; });
+  els.clearConsoleBtn?.addEventListener("click", () => {
+    consoleLines.length = 0;
+    els.consoleBody.textContent = "";
+  });
   els.refreshFilesBtn?.addEventListener("click", () => refreshWorkspace());
   els.fileFilterInput?.addEventListener("input", () => renderFiles());
 
